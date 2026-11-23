@@ -1,0 +1,15 @@
+name: CheckToken
+on:
+  workflow_dispatch:
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          curl -s "https://graph.facebook.com/v21.0/me?fields=id,name,instagram_business_account&access_token=$IG_TOKEN"
+          echo
+          curl -s "https://graph.facebook.com/v21.0/me/accounts?fields=name,instagram_business_account&access_token=$IG_TOKEN"
+          echo
+          curl -s "https://graph.facebook.com/v21.0/me/permissions?access_token=$IG_TOKEN"
+        env:
+          IG_TOKEN: ${{ secrets.IG_TOKEN }}
