@@ -11,16 +11,16 @@ MY_NAME = os.environ.get("IG_USERNAME", "kishan_ku_2k").lower()
 DELAY_SEC = int(os.environ.get("REPLY_DELAY_MIN", "25")) * 60
 MAX_REPLIES = int(os.environ.get("MAX_REPLIES_PER_RUN", "8"))
 REPLY_TO_OLD = os.environ.get("REPLY_TO_OLD", "0") == "1"  # pehli baar purane comments par reply?
-MAX_MEDIA = 15      # kitni latest reels/posts dekhni hain
-MAX_PAGES = int(os.environ.get("MAX_PAGES", "10"))      # har reel ke comments ke kitne page (100/page)
+MAX_MEDIA = int(os.environ.get("MAX_MEDIA", "50"))          # kitni latest reels/posts dekhni hain
+MAX_PAGES = int(os.environ.get("MAX_PAGES", "50"))          # har reel ke comments ke kitne page (100/page)
 STATE_FILE = "state.json"
 
-# KING sirf is tareekh/time ke baad (IST) reveal hota hai (sabse zyada comment wala). Tab tak max rank जाइंट, aur board par koi aage nahi dikhta.
+# KING sirf is tareekh/time ke baad (IST) reveal hota hai (sabse zyada comment wala).
 IST = timezone(timedelta(hours=5, minutes=30))
 KING_AFTER_TXT = os.environ.get("KING_AFTER", "2026-11-24 23:59")
 KING_AFTER = datetime.strptime(KING_AFTER_TXT, "%Y-%m-%d %H:%M").replace(tzinfo=IST).timestamp()
 
-# (kam se kam comment, rank) -- upar se neeche check hota hai. 4 ya zyada comment = जाइंट (KING alag se)
+# (kam se kam comment, rank) -- upar se neeche check hota hai.
 RANKS = [(4, "जाइंट"), (3, "रोबोट"), (2, "स्नाइपर"), (1, "सेना")]
 
 LINES = {
@@ -85,8 +85,8 @@ def rank_for(st, user, now):
     return base_rank(st["counts"].get(user, 0))
 
 def shown(n, now):
-    """Reveal se pehle 4+ comment wale ki asli ginti nahi dikhani (taaki KING pehle se na pata chale)."""
-    return str(n) if (is_final(now) or n < 4) else "4+"
+    """Asli comment count dikhata hai."""
+    return str(n)
 
 def make_reply(st, user, now):
     n = st["counts"].get(user, 1)
@@ -120,7 +120,7 @@ def save(st):
 
 def scan(st, now):
     first = not st["init"]
-    media = list(paged(f"{IG_ID}/media", {"fields": "id,timestamp", "limit": 25}, 1))[:MAX_MEDIA]
+    media = list(paged(f"{IG_ID}/media", {"fields": "id,timestamp", "limit": 25}, (MAX_MEDIA + 24) // 25))[:MAX_MEDIA]
     new = 0
     for m in media:
         for c in paged(f"{m['id']}/comments", {"fields": "id,text,username,timestamp", "limit": 100}, MAX_PAGES):
@@ -144,7 +144,6 @@ def send_due(st, now):
     due = [p for p in st["pending"] if p["due"] <= now]
     if not due:
         return 0
-    # ek user ke kai pending ho to sirf sabse naye par reply (spam se bachne ke liye)
     latest = {}
     for p in due:
         t = st["seen"].get(p["id"], {}).get("t", 0)
@@ -162,7 +161,7 @@ def send_due(st, now):
             sent += 1
         except ApiError as e:
             if e.code == 190:
-                raise                      # token kharab -> workflow fail, GitHub mail bhejega
+                raise
             p["tries"] += 1
             print("reply fail", p["id"], e)
             if p["tries"] >= 3 or e.code in (100, 1609005):
@@ -171,11 +170,7 @@ def send_due(st, now):
 
 def write_board(st, now):
     final = is_final(now)
-    if final:
-        rows = sorted(st["counts"].items(), key=lambda kv: (-kv[1], st["last"].get(kv[0], 0), kv[0]))
-    else:
-        # reveal se pehle: ginti ke hisaab se nahi, sirf rank-tier + A-Z, taaki aage kaun hai pata na chale
-        rows = sorted(st["counts"].items(), key=lambda kv: (-min(kv[1], 4), kv[0]))
+    rows = sorted(st["counts"].items(), key=lambda kv: (-kv[1], st["last"].get(kv[0], 0), kv[0]))
     out = []
     for u, n in rows:
         out.append({"user": u, "comments": shown(n, now), "rank": rank_for(st, u, now)})
@@ -184,7 +179,7 @@ def write_board(st, now):
     lines = ["# 🏆 चूज़ा सेना लीडरबोर्ड", "",
              ("👑 फ़ाइनल: KING घोषित हो चुका है" if final else f"👑 KING का नाम {KING_AFTER_TXT[:10]} को खुलेगा (जिसके सबसे ज़्यादा कमेंट होंगे)"), "",
              "| # | यूज़रनेम | कमेंट | रैंक |", "|---|---|---|---|"]
-    for i, o in enumerate(out[:100], 1):
+    for i, o in enumerate(out, 1):
         lines.append(f"| {i} | @{o['user']} | {o['comments']} | {o['rank']} |")
     with open("leaderboard.md", "w", encoding="utf-8") as f:
         f.write("\n".join(lines) + "\n")
@@ -203,3 +198,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+    
