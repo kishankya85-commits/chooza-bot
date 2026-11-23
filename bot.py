@@ -11,8 +11,8 @@ MY_NAME = os.environ.get("IG_USERNAME", "kishan_ku_2k").lower()
 DELAY_SEC = int(os.environ.get("REPLY_DELAY_MIN", "25")) * 60
 MAX_REPLIES = int(os.environ.get("MAX_REPLIES_PER_RUN", "8"))
 REPLY_TO_OLD = False  # purane comments par reply nahi hoga, sirf leaderboard me naam aayega
-MAX_MEDIA = int(os.environ.get("MAX_MEDIA", "15"))
-MAX_PAGES = int(os.environ.get("MAX_PAGES", "10"))
+MAX_MEDIA = int(os.environ.get("MAX_MEDIA", "50"))
+MAX_PAGES = int(os.environ.get("MAX_PAGES", "50"))
 STATE_FILE = "state.json"
 
 # 24 November 2026 raat 12:00 baje (23:59 IST ke baad) jo sabse zyada comment karega, wahi KING banega
