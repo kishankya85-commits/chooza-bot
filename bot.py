@@ -1,6 +1,6 @@
 """ChoozaSenaBot - Instagram comment rank bot.
-Har run me: naye comments gino -> 25 min baad rank wala reply -> leaderboard update."""
-import os, json, random
+Har run me: naye comments gino -> 25 min baad bio group/broadcast join reply -> leaderboard update."""
+import os, json, random, time
 from datetime import datetime, timezone, timedelta
 import requests
 
@@ -10,26 +10,23 @@ IG_ID = os.environ.get("IG_USER_ID", "17841475497869173")
 MY_NAME = os.environ.get("IG_USERNAME", "kishan_ku_2k").lower()
 DELAY_SEC = int(os.environ.get("REPLY_DELAY_MIN", "25")) * 60
 MAX_REPLIES = int(os.environ.get("MAX_REPLIES_PER_RUN", "8"))
-REPLY_TO_OLD = os.environ.get("REPLY_TO_OLD", "0") == "1"  # pehli baar purane comments par reply?
-MAX_MEDIA = int(os.environ.get("MAX_MEDIA", "50"))          # kitni latest reels/posts dekhni hain
-MAX_PAGES = int(os.environ.get("MAX_PAGES", "50"))          # har reel ke comments ke kitne page (100/page)
+REPLY_TO_OLD = False  # purane comments par reply nahi hoga, sirf leaderboard me naam aayega
+MAX_MEDIA = int(os.environ.get("MAX_MEDIA", "15"))
+MAX_PAGES = int(os.environ.get("MAX_PAGES", "10"))
 STATE_FILE = "state.json"
 
-# KING sirf is tareekh/time ke baad (IST) reveal hota hai (sabse zyada comment wala).
+# 24 November 2026 raat 12:00 baje (23:59 IST ke baad) jo sabse zyada comment karega, wahi KING banega
 IST = timezone(timedelta(hours=5, minutes=30))
 KING_AFTER_TXT = os.environ.get("KING_AFTER", "2026-11-24 23:59")
 KING_AFTER = datetime.strptime(KING_AFTER_TXT, "%Y-%m-%d %H:%M").replace(tzinfo=IST).timestamp()
 
-# (kam se kam comment, rank) -- upar se neeche check hota hai.
 RANKS = [(4, "जाइंट"), (3, "रोबोट"), (2, "स्नाइपर"), (1, "सेना")]
 
-LINES = {
-    "सेना": ["चूज़ा सेना में स्वागत है! 🐥", "सेना में भर्ती हो गई! 🪖", "पहला कदम रख दिया, जवान! 🐥"],
-    "स्नाइपर": ["निशाना सीधा लगा! 🎯", "अब तुम स्नाइपर हो! 🎯", "तेज़ नज़र, पक्का निशाना! 🎯"],
-    "रोबोट": ["मशीन की तरह एक्टिव! 🤖", "रोबोट सोल्जर बन गए! 🤖", "पावर बढ़ रही है! 🤖"],
-    "जाइंट": ["तुम तो जाइंट मुर्गे निकले! 🐔", "सेना की असली ताकत! 💪", "बड़ा कदम, जाइंट! 🐔"],
-    "किंग": ["सेना के KING! 👑", "सलाम करो, राजा आ गया! 👑", "राजा की जय हो! 👑"],
-}
+JOIN_LINES = [
+    "आपको हमने ऐड कर दिया है! एक बार हमारे बायो में जाके ग्रुप ज्वाइन कर लो।",
+    "आपको हमने ऐड कर दिया है! हमारे बायो में ब्रॉडकास्ट चैनल/ग्रुप है, उसे एक बार ज्वाइन कर लो।",
+    "आपको हमने ऐड कर दिया है! बायो में जाकर ग्रुप ज्वाइन कर लो और एक्टिव रहो।",
+]
 
 class ApiError(Exception):
     def __init__(self, code, msg):
@@ -62,7 +59,8 @@ def paged(path, params, max_pages):
         nxt = j.get("paging", {}).get("next")
         if not nxt:
             return
-        url, params = nxt, None   # next URL me token pehle se hota hai
+        url, params = nxt, None
+        time.sleep(0.5)
 
 def base_rank(n):
     for th, name in RANKS:
@@ -84,23 +82,13 @@ def rank_for(st, user, now):
         return "किंग"
     return base_rank(st["counts"].get(user, 0))
 
-def shown(n, now):
-    """Asli comment count dikhata hai."""
-    return str(n)
-
 def make_reply(st, user, now):
     n = st["counts"].get(user, 1)
     rank = rank_for(st, user, now)
-    msg = f"@{user} {random.choice(LINES[rank])}\nतुम्हारा रैंक: {rank} ({shown(n, now)} कमेंट)"
+    base_msg = random.choice(JOIN_LINES)
     if rank == "किंग":
-        return msg
-    nxt = [th for th, _ in RANKS if th > n]
-    if nxt:
-        name = [nm for th, nm in RANKS if th == min(nxt)][0]
-        msg += f"\nअगला रैंक {name} बनने के लिए {min(nxt) - n} कमेंट और!"
-    elif not is_final(now):
-        msg += f"\nKING का नाम {KING_AFTER_TXT[:10]} को खुलेगा, जिसके सबसे ज़्यादा कमेंट होंगे 👑"
-    return msg
+        return f"@{user} 👑 {base_msg}\nतुम्हारे कुल कमेंट: {n} | रैंक: किंग 👑"
+    return f"@{user} {base_msg}\nतुम्हारे कुल कमेंट: {n}"
 
 def parse_ts(s):
     return datetime.strptime(s, "%Y-%m-%dT%H:%M:%S%z").timestamp()
@@ -123,20 +111,26 @@ def scan(st, now):
     media = list(paged(f"{IG_ID}/media", {"fields": "id,timestamp", "limit": 25}, (MAX_MEDIA + 24) // 25))[:MAX_MEDIA]
     new = 0
     for m in media:
-        for c in paged(f"{m['id']}/comments", {"fields": "id,text,username,timestamp", "limit": 100}, MAX_PAGES):
-            cid, user = c["id"], (c.get("username") or "").lower()
-            if not user or user == MY_NAME or cid in st["seen"]:
-                continue
-            ts = parse_ts(c["timestamp"])
-            st["seen"][cid] = {"u": user, "t": ts}
-            if ts > KING_AFTER:      # last tareekh ke baad ke comment gine nahi jate
-                continue
-            st["counts"][user] = st["counts"].get(user, 0) + 1
-            st["last"][user] = max(st["last"].get(user, 0), ts)
-            new += 1
-            if first and not REPLY_TO_OLD:
-                continue
-            st["pending"].append({"id": cid, "u": user, "due": max(ts + DELAY_SEC, now), "tries": 0})
+        try:
+            for c in paged(f"{m['id']}/comments", {"fields": "id,text,username,timestamp", "limit": 100}, MAX_PAGES):
+                cid, user = c["id"], (c.get("username") or "").lower()
+                if not user or user == MY_NAME or cid in st["seen"]:
+                    continue
+                ts = parse_ts(c["timestamp"])
+                st["seen"][cid] = {"u": user, "t": ts}
+                if ts > KING_AFTER:
+                    continue
+                st["counts"][user] = st["counts"].get(user, 0) + 1
+                st["last"][user] = max(st["last"].get(user, 0), ts)
+                new += 1
+                if first and not REPLY_TO_OLD:
+                    continue
+                st["pending"].append({"id": cid, "u": user, "due": max(ts + DELAY_SEC, now), "tries": 0})
+        except ApiError as e:
+            if e.code == 190:
+                raise
+            print("scan skip media", m.get("id"), e)
+        time.sleep(1)
     st["init"] = True
     return new
 
@@ -159,6 +153,7 @@ def send_due(st, now):
             api_post(f"{API}/{p['id']}/replies", {"message": make_reply(st, p["u"], now)})
             st["pending"] = [q for q in st["pending"] if q["id"] != p["id"]]
             sent += 1
+            time.sleep(1)
         except ApiError as e:
             if e.code == 190:
                 raise
@@ -170,19 +165,37 @@ def send_due(st, now):
 
 def write_board(st, now):
     final = is_final(now)
+    king = top_user(st) if final else None
     rows = sorted(st["counts"].items(), key=lambda kv: (-kv[1], st["last"].get(kv[0], 0), kv[0]))
+    if final and king in st["counts"]:
+        rows = [(king, st["counts"][king])] + [kv for kv in rows if kv[0] != king]
+
     out = []
     for u, n in rows:
-        out.append({"user": u, "comments": shown(n, now), "rank": rank_for(st, u, now)})
+        out.append({"user": u, "comments": n, "rank": rank_for(st, u, now)})
+
     with open("leaderboard.json", "w", encoding="utf-8") as f:
         json.dump(out, f, ensure_ascii=False, indent=1)
-    lines = ["# 🏆 चूज़ा सेना लीडरबोर्ड", "",
-             ("👑 फ़ाइनल: KING घोषित हो चुका है" if final else f"👑 KING का नाम {KING_AFTER_TXT[:10]} को खुलेगा (जिसके सबसे ज़्यादा कमेंट होंगे)"), "",
-             "| # | यूज़रनेम | कमेंट | रैंक |", "|---|---|---|---|"]
+
+    header_note = (
+        f"👑 फ़ाइनल KING: @{out[0]['user']} ({out[0]['comments']} कमेंट)"
+        if (final and out)
+        else f"👑 KING का फ़ैसला 24 नवंबर रात 12:00 बजे के बाद सबसे ज़्यादा कमेंट वाले पर होगा"
+    )
+    lines = [
+        "# 🏆 चूज़ा सेना लीडरबोर्ड",
+        "",
+        header_note,
+        "",
+        "| # | यूज़रनेम | कमेंट | रैंक |",
+        "|---|---|---|---|",
+    ]
     for i, o in enumerate(out, 1):
         lines.append(f"| {i} | @{o['user']} | {o['comments']} | {o['rank']} |")
+
     with open("leaderboard.md", "w", encoding="utf-8") as f:
         f.write("\n".join(lines) + "\n")
+
     if final and out:
         with open("final_king.txt", "w", encoding="utf-8") as f:
             f.write(f"KING: @{out[0]['user']} ({out[0]['comments']} कमेंट)\n")
