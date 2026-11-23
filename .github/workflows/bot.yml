@@ -1,0 +1,29 @@
+name: ChoozaSenaBot
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: bot
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install requests
+      - run: python bot.py
+        env:
+          IG_TOKEN: ${{ secrets.IG_TOKEN }}
+          KING_AFTER: "2026-11-30 23:59"
+          MAX_PAGES: ${{ github.event_name == 'workflow_dispatch' && '700' || '5' }}
+      - run: |
+          git config user.name "bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet || (git commit -m "update" && git push)
