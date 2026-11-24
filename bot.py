@@ -1,20 +1,36 @@
-import os
 import json
+import os
 import random
 import time
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 import requests
 
 API = "https://graph.facebook.com/v21.0"
-TOKEN = os.environ["IG_TOKEN"]
-IG_ID = os.environ.get("IG_USER_ID", "17841475497060173")
+
+
+def get_tokens() -> list[str]:
+    multi = os.environ.get("IG_TOKENS", "")
+    single = os.environ.get("IG_TOKEN", "")
+    raw = f"{multi},{single}"
+    tokens = []
+    for t in raw.split(","):
+        t = t.strip()
+        if t and t not in tokens:
+            tokens.append(t)
+    return tokens
+
+
+TOKENS = get_tokens()
+TOKEN_INDEX = 0
+TOKEN = TOKENS[0] if TOKENS else ""
+
+IG_ID = os.environ.get("IG_USER_ID", "17841475497080173")
 MY_NAME = os.environ.get("IG_USERNAME", "kishan_ku_2k").lower()
 
 DELAY_SEC = int(os.environ.get("REPLY_DELAY_MIN", "25")) * 60
 MAX_REPLIES = int(os.environ.get("MAX_REPLIES_PER_RUN", "15"))
 REPLY_TO_OLD = False
 
-# सुरक्षित लिमिट्स ताकि Rate Limit (1-2 घंटे वाला ब्लॉक) न लगे
 MAX_MEDIA = int(os.environ.get("MAX_MEDIA", "30"))
 MAX_PAGES = int(os.environ.get("MAX_PAGES", "25"))
 PAGE_SLEEP = float(os.environ.get("PAGE_SLEEP", "1.5"))
@@ -28,9 +44,9 @@ KING_AFTER = datetime.strptime(KING_AFTER_TXT, "%Y-%m-%d %H:%M").replace(tzinfo=
 RANKS = [(4, "जाइंट"), (3, "रोबोट"), (2, "स्नाइपर"), (1, "सैनिक")]
 
 JOIN_LINES = [
-    "आपको हमने रैंक कर दिया है। एक बार हमसे बड़ों से याको चूर जवान बन लो।",
-    "आपको हमने रैंक कर दिया है। हमारे बड़ों से चौकाया सेना/हुआ है, इसे एक बार पहचान कर लो।",
-    "आपको हमने रैंक कर दिया है। बड़ों में आकर तुम ध्यान कर लो और सुरक्षित रहो।"
+    "आपको हमने रैंक कर दिया है। एक बार हममें नहीं थे वक़्त पूरा तमाम बन लो।",
+    "आपको हमने रैंक कर दिया है। हमारे यहाँ से परिवार सेना/हुना है, इसे एक बार पहचान कर लो।",
+    "आपको हमने रैंक कर दिया है। यहाँ में आकर तुम ध्यान उन लो और सुरक्षित रहो।",
 ]
 
 
@@ -38,6 +54,16 @@ class ApiError(Exception):
     def __init__(self, code, msg):
         super().__init__(f"{code}: {msg}")
         self.code = code
+
+
+def rotate_token() -> bool:
+    global TOKEN_INDEX, TOKEN
+    if len(TOKENS) <= 1:
+        return False
+    TOKEN_INDEX = (TOKEN_INDEX + 1) % len(TOKENS)
+    TOKEN = TOKENS[TOKEN_INDEX]
+    print(f"Switched to token #{TOKEN_INDEX + 1}")
+    return True
 
 
 def _check(r):
@@ -51,15 +77,33 @@ def _check(r):
 
 
 def api_get(url, params=None):
-    p = dict(params or {})
-    p["access_token"] = TOKEN
-    return _check(requests.get(url, params=p, timeout=30))
+    global TOKEN
+    attempts = max(1, len(TOKENS))
+    for i in range(attempts):
+        p = dict(params or {})
+        p["access_token"] = TOKEN
+        try:
+            return _check(requests.get(url, params=p, timeout=30))
+        except ApiError as e:
+            if e.code in (4, 17, 32, 190, 613) and i < attempts - 1:
+                rotate_token()
+                continue
+            raise
 
 
 def api_post(url, data):
-    d = dict(data)
-    d["access_token"] = TOKEN
-    return _check(requests.post(url, data=d, timeout=30))
+    global TOKEN
+    attempts = max(1, len(TOKENS))
+    for i in range(attempts):
+        d = dict(data)
+        d["access_token"] = TOKEN
+        try:
+            return _check(requests.post(url, data=d, timeout=30))
+        except ApiError as e:
+            if e.code in (4, 17, 32, 190, 613) and i < attempts - 1:
+                rotate_token()
+                continue
+            raise
 
 
 def paged(path, params, max_pages):
@@ -106,18 +150,30 @@ def make_reply(st, user, now):
     rank = rank_for(st, user, now)
     base_msg = random.choice(JOIN_LINES)
     if rank == "किंग":
-        return f"@{user} 👑 {base_msg} | कुल कमेंट: {n} | रैंक: किंग 👑"
+        return f"@{user} {base_msg} | कुल कमेंट: {n} | रैंक: किंग 👑"
     return f"@{user} {base_msg} | कुल कमेंट: {n}"
 
 
 def parse_ts(s):
-    return datetime.strptime(s, "%Y-%m-%dT%H:%M:%S%z").timestamp()
+    if not s:
+        return 0.0
+    for fmt in ("%Y-%m-%dT%H:%M:%S%z", "%Y-%m-%dT%H:%M:%S.%f%z", "%Y-%m-%dT%H:%M:%S"):
+        try:
+            dt = datetime.strptime(s, fmt)
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            return dt.timestamp()
+        except ValueError:
+            continue
+    return 0.0
 
 
 def load():
     try:
-        with open(STATE_FILE, encoding="utf-8") as f:
+        with open(STATE_FILE, "r", encoding="utf-8") as f:
             st = json.load(f)
+        if not isinstance(st, dict):
+            st = {}
         st.setdefault("init", False)
         st.setdefault("seen", {})
         st.setdefault("counts", {})
@@ -137,32 +193,36 @@ def scan(st, now):
     first = not st["init"]
     media_limit_pages = max(1, (MAX_MEDIA + 24) // 25)
     media = list(paged(f"{IG_ID}/media", {"fields": "id,timestamp", "limit": 25}, media_limit_pages))[:MAX_MEDIA]
-    new = 0
+    new_count = 0
 
     for m in media:
         try:
             for c in paged(f"{m['id']}/comments", {"fields": "id,text,username,timestamp", "limit": 100}, MAX_PAGES):
-                cid = c.get("id")
-                user = (c.get("username") or "").lower()
-                if not cid or not user or user == MY_NAME or cid in st["seen"]:
+                cid = str(c.get("id") or "").strip()
+                user = str(c.get("username") or "").strip().lower()
+                if not cid or not user or user == MY_NAME:
                     continue
 
-                ts = parse_ts(c["timestamp"])
-                st["seen"][cid] = {"u": user, "t": ts}
+                ts = parse_ts(c.get("timestamp"))
 
-                if ts > KING_AFTER:
-                    continue
+                # अगर कोई पुराना कमेंट पहले seen में नहीं है या काउंट में नहीं गिना गया है, तो जोड़ें
+                already_seen = cid in st["seen"]
+                if not already_seen:
+                    st["seen"][cid] = {"u": user, "t": ts}
+                    st["counts"][user] = st["counts"].get(user, 0) + 1
+                    st["last"][user] = max(st["last"].get(user, 0), ts)
+                    new_count += 1
 
-                st["counts"][user] = st["counts"].get(user, 0) + 1
-                st["last"][user] = max(st["last"].get(user, 0), ts)
-                new += 1
+                    if first and not REPLY_TO_OLD:
+                        continue
 
-                if first and not REPLY_TO_OLD:
-                    continue
+                    st["pending"].append({"id": cid, "u": user, "due": now + DELAY_SEC, "tries": 0})
+                else:
+                    # सुरक्षा: यदि seen में है पर last अपडेट नहीं हुआ है
+                    st["last"][user] = max(st["last"].get(user, 0), ts)
 
-                st["pending"].append({"id": cid, "u": user, "due": now + DELAY_SEC, "tries": 0})
         except ApiError as e:
-            if e.code == 190:
+            if e.code == 190 and not rotate_token():
                 raise
             print("Scan skip media / rate limit:", m.get("id"), e)
             save(st)
@@ -171,41 +231,49 @@ def scan(st, now):
 
     st["init"] = True
     save(st)
-    return new
+    return new_count
 
 
 def send_due(st, now):
-    due = [p for p in st["pending"] if p["due"] <= now]
+    due = [p for p in st["pending"] if p.get("due", 0) <= now]
     if not due:
         return 0
 
-    latest = {}
+    # हर यूज़र के लिए सबसे नया due कमेंट चुनें, लेकिन दूसरे due आइटम्स को गलत तरीके से न काटें
+    latest_by_user = {}
     for p in due:
-        t = st["seen"].get(p["id"], {}).get("t", 0)
-        if p["u"] not in latest or t > st["seen"].get(latest[p["u"]]["id"], {}).get("t", 0):
-            latest[p["u"]] = p
-
-    keep_ids = {p["id"] for p in latest.values()}
-    st["pending"] = [p for p in st["pending"] if p["id"] not in {d["id"] for d in due} or p["id"] in keep_ids]
+        u = p.get("u")
+        if not u:
+            continue
+        t = st["seen"].get(p.get("id"), {}).get("t", 0)
+        if u not in latest_by_user or t >= st["seen"].get(latest_by_user[u].get("id"), {}).get("t", 0):
+            latest_by_user[u] = p
 
     sent = 0
-    for p in sorted(latest.values(), key=lambda x: x["due"]):
+    sent_ids = set()
+    drop_ids = set()
+
+    for p in sorted(latest_by_user.values(), key=lambda x: x.get("due", 0)):
         if sent >= MAX_REPLIES:
             break
+        pid = p.get("id")
         try:
-            api_post(f"{API}/{p['id']}/replies", {"message": make_reply(st, p["u"], now)})
-            st["pending"] = [q for q in st["pending"] if q["id"] != p["id"]]
+            api_post(f"{API}/{pid}/replies", {"message": make_reply(st, p["u"], now)})
+            sent_ids.add(pid)
             sent += 1
             time.sleep(1.5)
         except ApiError as e:
-            if e.code == 190:
+            if e.code == 190 and not rotate_token():
                 raise
-            p["tries"] += 1
-            print("reply fail:", p["id"], e)
+            print("reply fail:", pid, e)
+            p["tries"] = p.get("tries", 0) + 1
             if p["tries"] >= 3 or e.code in (100, 109005):
-                st["pending"] = [q for q in st["pending"] if q["id"] != p["id"]]
+                drop_ids.add(pid)
             if e.code in (4, 17, 32, 613):
                 break
+
+    if sent_ids or drop_ids:
+        st["pending"] = [p for p in st["pending"] if p.get("id") not in (sent_ids | drop_ids)]
 
     save(st)
     return sent
@@ -213,56 +281,5 @@ def send_due(st, now):
 
 def write_board(st, now):
     final = is_final(now)
-    king = top_user(st) if final else None
-    rows = sorted(st["counts"].items(), key=lambda kv: (-kv[1], st["last"].get(kv[0], 0), kv[0]))
-    if final and king in st["counts"]:
-        rows = [(king, st["counts"][king])] + [kv for kv in rows if kv[0] != king]
-
-    out = []
-    for u, n in rows:
-        out.append({"user": u, "comments": n, "rank": rank_for(st, u, now)})
-
-    with open("leaderboard.json", "w", encoding="utf-8") as f:
-        json.dump(out, f, ensure_ascii=False, indent=1)
-
-    if out:
-        header_note = (
-            f"**🏆 फाइनल KING: @{out[0]['user']} ({out[0]['comments']} कमेंट)**"
-            if final
-            else f"KING का फैसला 24 नवंबर रात 12:00 बजे के बाद सबसे ज़्यादा कमेंट वाले पर होगा"
-        )
-    else:
-        header_note = "अभी तक कोई कमेंट दर्ज नहीं हुआ है।"
-
-    lines = [
-        "# 🏆 चूज़ा सेना लीडरबोर्ड",
-        "",
-        header_note,
-        "",
-        "| # | यूज़रनेम | कमेंट | रैंक |",
-        "|---|---|---|---|",
-    ]
-    for i, e in enumerate(out, 1):
-        lines.append(f"| {i} | @{e['user']} | {e['comments']} | {e['rank']} |")
-
-    with open("leaderboard.md", "w", encoding="utf-8") as f:
-        f.write("\n".join(lines) + "\n")
-
-    if final and out:
-        with open("final_king.txt", "w", encoding="utf-8") as f:
-            f.write(f"KING @{out[0]['user']} ({out[0]['comments']} कमेंट)\n")
-
-
-def main():
-    now = datetime.now(timezone.utc).timestamp()
-    st = load()
-    new = scan(st, now)
-    sent = send_due(st, now)
-    write_board(st, now)
-    save(st)
-    print(f"naye comments: {new}, bheje reply: {sent}, pending: {len(st['pending'])}, log: {len(st['counts'])}")
-
-
-if __name__ == "__main__":
-    main()
+    king = top_
     
