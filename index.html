@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#14081f">
+<title>चूज़ा सेना लीडरबोर्ड</title>
+<style>
+:root{
+  --night:#14081f; --dusk:#2d0d33; --panel:#241032; --panel2:#321745; --edge:#5a2d6e;
+  --moon:#e63a3a; --gold:#ffd23f; --cream:#fff3d1; --cyan:#5be7ff; --mute:#b9a3c9;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--night)}
+body{
+  color:var(--cream);
+  font-family:"Noto Sans Devanagari","Mukta","Segoe UI",system-ui,-apple-system,sans-serif;
+  padding-bottom:max(28px,env(safe-area-inset-bottom));
+  background:var(--night);
+}
+main{max-width:520px;margin:0 auto;padding:0 14px}
+/* hero */
+.hero{position:relative;margin:0 -14px;padding-top:env(safe-area-inset-top)}
+.hero svg{display:block;width:100%;height:auto}
+.hero .ttl{position:absolute;left:0;right:0;top:calc(18px + env(safe-area-inset-top));text-align:center;pointer-events:none}
+.hero h1{margin:0;font-size:2.15rem;line-height:1.1;font-weight:800;letter-spacing:.2px;text-shadow:0 3px 0 #14081f,0 0 18px rgba(230,58,58,.75)}
+.hero p{margin:4px 0 0;font-size:.98rem;color:var(--cream);text-shadow:0 2px 0 #14081f}
+.eye{animation:glow 2.6s ease-in-out infinite}
+@keyframes glow{0%,100%{opacity:1}50%{opacity:.55}}
+@media (prefers-reduced-motion:reduce){.eye{animation:none}}
+/* king */
+.king{display:none;align-items:center;gap:10px;margin:8px 0 14px;padding:10px 14px;border-radius:16px;background:linear-gradient(90deg,#5a3a05,#a77a10);border:2px solid var(--gold);box-shadow:0 0 22px rgba(255,210,63,.28)}
+.king svg{flex:none;width:46px;height:46px}
+.king small{display:block;font-size:.82rem;opacity:.9}
+.king b{display:block;font-size:1.1rem;word-break:break-all}
+.king .kc{margin-left:auto;text-align:right;font-weight:800;font-size:1.25rem;line-height:1.1}
+.king .kc small{font-weight:600}
+/* search */
+.search{background:var(--panel);border:2px solid var(--edge);border-radius:20px;padding:14px}
+.search label{display:block;font-weight:700;margin-bottom:8px}
+.row{display:flex;gap:8px}
+.field{flex:1;min-width:0;display:flex;align-items:center;background:var(--night);border:2px solid var(--edge);border-radius:14px;padding:0 12px}
+.field:focus-within{border-color:var(--gold)}
+.field span{color:var(--gold);font-weight:800;margin-right:4px}
+.field input{flex:1;min-width:0;border:0;outline:0;background:transparent;color:var(--cream);font:inherit;font-size:1.08rem;padding:14px 0}
+.field input::placeholder{color:#8d739f}
+.go{flex:none;border:0;border-radius:14px;padding:0 16px;font:inherit;font-weight:800;font-size:1rem;color:#2b1233;background:linear-gradient(180deg,#ffe27a,#ffb82a);box-shadow:0 4px 0 #a86b00;cursor:pointer}
+.go:active{transform:translateY(3px);box-shadow:0 1px 0 #a86b00}
+.field input:focus-visible{outline:0}
+.go:focus-visible,.chip:focus-visible,a:focus-visible{outline:3px solid var(--cyan);outline-offset:2px}
+.sugg{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.chip{border:1px solid var(--edge);background:var(--panel2);color:var(--cream);border-radius:999px;padding:6px 12px;font:inherit;font-size:.92rem;cursor:pointer}
+.msg{margin:12px 2px;color:var(--mute);font-weight:600}
+/* result card */
+.card{display:none;margin:16px 0;border-radius:24px;padding:18px 16px 16px;background:radial-gradient(circle at 50% 0,var(--glow,#ffd23f33),transparent 62%),var(--panel);border:3px solid var(--rc,var(--gold));box-shadow:0 0 28px var(--glow,#ffd23f55)}
+.card.show{display:block}
+@media (prefers-reduced-motion:no-preference){.card.show{animation:rise .3s ease-out}@keyframes rise{from{transform:translateY(10px) scale(.97);opacity:.4}to{transform:none;opacity:1}}}
+.card .who{display:flex;align-items:center;gap:14px}
+.card .who svg{flex:none;width:96px;height:96px}
+.card .rk{font-size:1.9rem;font-weight:800;line-height:1.1;color:var(--rc,var(--gold))}
+.card .nm{font-weight:700;word-break:break-all;margin-top:2px}
+.card .nums{display:flex;gap:8px;margin:14px 0}
+.card .nums div{flex:1;background:var(--night);border-radius:12px;padding:8px 6px;text-align:center}
+.card .nums b{display:block;font-size:1.35rem}
+.card .nums small{color:var(--mute);font-size:.8rem}
+.ladder{display:flex;gap:4px;margin:12px 0 4px}
+.ladder div{flex:1;text-align:center;font-size:.78rem;color:var(--mute);opacity:.55}
+.ladder div svg{width:100%;max-width:44px;height:auto;filter:grayscale(1) brightness(.7)}
+.ladder .done{opacity:1;color:var(--cream)}
+.ladder .done svg{filter:none}
+.ladder .now{opacity:1;color:var(--gold);font-weight:800}
+.ladder .now svg{filter:drop-shadow(0 0 6px var(--gold))}
+.next{margin:10px 0 0;padding:10px 12px;border-radius:12px;background:var(--night);font-weight:600}
+.miss{text-align:center}
+.miss .big{font-size:2.6rem}
+.miss b{display:block;font-size:1.15rem;margin:4px 0;word-break:break-all}
+.miss p{margin:6px 0 0;color:var(--mute)}
+/* podium */
+h2{font-size:1.15rem;margin:22px 2px 10px}
+.pod{display:grid;grid-template-columns:1fr 1.12fr 1fr;gap:8px;align-items:end}
+.pod .p{text-align:center;min-width:0}
+.pod .p svg{width:100%;max-width:74px;height:auto}
+.pod .u{font-size:.82rem;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 2px}
+.pod .c{font-size:.8rem;color:var(--mute);margin-bottom:6px}
+.pod .blk{border-radius:12px 12px 0 0;display:flex;align-items:flex-start;justify-content:center;padding-top:6px;font-size:1.5rem;font-weight:800;color:#2b1233}
+.pod .p1 .blk{height:84px;background:linear-gradient(180deg,#ffe27a,#d99a12)}
+.pod .p2 .blk{height:60px;background:linear-gradient(180deg,#e6e9f2,#9aa1b5)}
+.pod .p3 .blk{height:44px;background:linear-gradient(180deg,#f0b37a,#a8672e)}
+.pod .me .u{color:var(--gold)}
+/* list */
+ol{list-style:none;margin:10px 0 0;padding:0;background:var(--panel);border:2px solid var(--edge);border-radius:18px;overflow:hidden}
+li{display:grid;grid-template-columns:1.8rem 36px 1fr auto;gap:10px;align-items:center;padding:8px 12px;border-bottom:1px solid #3d1f4d}
+li:last-child{border-bottom:0}
+li .n{font-weight:800;color:var(--mute)}
+li svg{width:36px;height:36px}
+li .u{font-weight:600;word-break:break-all;font-size:.95rem}
+li .c{font-size:.85rem;color:var(--mute);text-align:right}
+li.me{background:#4a2a05;box-shadow:inset 0 0 0 2px var(--gold)}
+li.gap{display:block;text-align:center;color:var(--mute);padding:2px}
+.foot{margin:18px 2px 0;color:var(--mute);font-size:.92rem}
+.foot a{color:var(--gold);font-weight:700}
+</style>
+</head>
+<body>
+<main>
+  <header class="hero" id="hero"></header>
+  <div class="king" id="king"></div>
+
+  <form class="search" id="f" autocomplete="off">
+    <label for="q">अपना Instagram username डालो</label>
+    <div class="row">
+      <div class="field"><span>@</span><input id="q" type="text" inputmode="text" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="username"></div>
+      <button class="go" type="submit">Rank देखो</button>
+    </div>
+    <div class="sugg" id="sugg"></div>
+  </form>
+
+  <section class="card" id="card" aria-live="polite"></section>
+  <p class="msg" id="msg">लीडरबोर्ड लोड हो रहा है...</p>
+
+  <div id="board" hidden>
+    <h2>सेना के टॉप 3</h2>
+    <div class="pod" id="pod"></div>
+    <h2>टॉप 10</h2>
+    <ol id="top"></ol>
+  </div>
+  <p class="foot" id="foot"></p>
+</main>
+
+<script>
+(function(){
+  var RAW="https://raw.githubusercontent.com/kishankya85-commits/chooza-bot/main/leaderboard.json";
+  var FULL="https://github.com/kishankya85-commits/chooza-bot/blob/main/leaderboard.md";
+  var $=function(i){return document.getElementById(i)};
+  var rows=[],byName={};
+
+  /* ---------- characters (static SVG, no user data inside) ---------- */
+  var STEPS=[
+    {k:"soldier",t:"सिपाही",c:"#7fd35f"},
+    {k:"sniper",t:"स्नाइपर",c:"#5aa8ff"},
+    {k:"robot",t:"रोबोट",c:"#5be7ff"},
+    {k:"giant",t:"जाइंट",c:"#ff6b3d"},
+    {k:"king",t:"किंग",c:"#ffd23f"}
+  ];
+  function chickG(kind){
+    var body="#ffd23f",wing="#e8a91c",extra="",top="",eye='<circle cx="62" cy="54" r="7" fill="#fff"/><circle cx="64" cy="55" r="3.2" fill="#161616"/>';
+    if(kind==="robot"){body="#aab3c6";wing="#848ea3";}
+    if(kind==="giant"){body="#ff9632";wing="#d86d12";}
+    if(kind==="king"){body="#ffcb2e";wing="#e09a00";}
+    var s='<path d="M42 82v10M58 82v10M36 92h12M54 92h12" stroke="#e6781e" stroke-width="4" stroke-linecap="round" fill="none"/>';
+    s+='<ellipse cx="50" cy="58" rx="31" ry="27" fill="'+body+'" stroke="#5a3210" stroke-width="2.5"/>';
+    s+='<ellipse cx="36" cy="64" rx="13" ry="10" fill="'+wing+'" stroke="#5a3210" stroke-width="2"/>';
+    s+='<path d="M76 52l16 5-16 6z" fill="#ff9a1f" stroke="#5a3210" stroke-width="2" stroke-linejoin="round"/>';
+    if(kind==="soldier"){
+      s+=eye+'<path d="M20 52A30 30 0 0 1 80 52z" fill="#4f8a3c" stroke="#25451a" stroke-width="2.5"/><rect x="20" y="46" width="60" height="6" fill="#3b6b2c"/>';
+    }else if(kind==="sniper"){
+      s+='<path d="M20 52A30 30 0 0 1 80 52z" fill="#2b303a" stroke="#0e1015" stroke-width="2.5"/>'+eye+'<circle cx="62" cy="54" r="10" fill="none" stroke="#ff3b3b" stroke-width="3"/><circle cx="62" cy="54" r="2.5" fill="#ff3b3b"/><path d="M26 74L90 66" stroke="#3a3f4b" stroke-width="6" stroke-linecap="round"/>';
+    }else if(kind==="robot"){
+      s+='<path d="M50 31v-9" stroke="#848ea3" stroke-width="4"/><circle cx="50" cy="20" r="5" fill="#ff3b3b"/><rect x="40" y="46" width="34" height="16" rx="4" fill="#38e0ff" stroke="#16323a" stroke-width="2.5"/><circle cx="30" cy="48" r="3" fill="#666f84"/>';
+    }else if(kind==="giant"){
+      s+='<path d="M30 34l6-18 7 15 7-20 7 20 7-15 6 18z" fill="#e5242d" stroke="#5a1010" stroke-width="2" stroke-linejoin="round"/>'+eye+'<path d="M52 44l22 8" stroke="#161616" stroke-width="5" stroke-linecap="round"/><rect x="22" y="72" width="56" height="7" fill="#9c2020"/>';
+    }else if(kind==="king"){
+      s+=eye+'<path d="M32 36V14l13 12 5-16 5 16 13-12v22z" fill="#ffd700" stroke="#8a5a00" stroke-width="2.5" stroke-linejoin="round"/><circle cx="50" cy="31" r="3.5" fill="#e5242d"/>';
+    }else{
+      s+=eye+'<path d="M38 32q-2-12 6-14M50 30q0-14 8-14M62 33q4-10 12-8" stroke="#e5242d" stroke-width="5" stroke-linecap="round" fill="none"/>';
+    }
+    return s;
+  }
+  function svg(kind){return '<svg viewBox="0 0 100 100" aria-hidden="true">'+chickG(kind)+'</svg>';}
+  function catG(eyeC,horn){
+    var s='<path d="M-26 22v14M-8 22v14M8 22v14M24 22v14" stroke="#0d0614" stroke-width="7" stroke-linecap="round"/><ellipse cx="0" cy="12" rx="32" ry="20" fill="#0d0614"/>';
+    s+='<path d="M-28 -12l4-26 18 14zM28 -12l-4-26-18 14z" fill="#0d0614"/>';
+    if(horn)s+='<path d="M-18 -22l-6-32 16 24zM18 -22l6-32-16 24z" fill="'+horn+'"/>';
+    s+='<ellipse cx="0" cy="-8" rx="29" ry="24" fill="#0d0614"/>';
+    s+='<g class="eye"><ellipse cx="-12" cy="-10" rx="6" ry="7" fill="'+eyeC+'"/><ellipse cx="12" cy="-10" rx="6" ry="7" fill="'+eyeC+'"/></g>';
+    s+='<path d="M-9 4l4 9 4-9zM5 4l4 9 4-9z" fill="#fff"/>';
+    return s;
+  }
+  function hero(){
+    var h='<svg viewBox="0 0 360 250" role="img" aria-label="चूज़ा सेना बनाम बिल्ली सेना">';
+    h+='<defs><linearGradient id="sk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#14081f"/><stop offset=".6" stop-color="#4a0f2e"/><stop offset="1" stop-color="#9a2230"/></linearGradient></defs>';
+    h+='<rect width="360" height="250" fill="url(#sk)"/>';
+    h+='<circle cx="180" cy="128" r="74" fill="#c4262e" opacity=".55"/><circle cx="180" cy="128" r="56" fill="#e63a3a" opacity=".7"/>';
+    h+='<path d="M0 205Q90 182 180 200T360 192V250H0z" fill="#12061b"/>';
+    h+='<g transform="translate(16 142) scale(.62)">'+chickG("soldier")+'</g>';
+    h+='<g transform="translate(60 156) scale(.52)">'+chickG("sniper")+'</g>';
+    h+='<g transform="translate(98 146) scale(.6)">'+chickG("robot")+'</g>';
+    h+='<g transform="translate(254 168) scale(.55)">'+catG("#ff4040")+'</g>';
+    h+='<g transform="translate(296 176) scale(.5)">'+catG("#ffd23f")+'</g>';
+    h+='<g transform="translate(330 170) scale(.46)">'+catG("#ff4040")+'</g>';
+    h+='<g transform="translate(208 166) scale(.9)">'+catG("#ff3030","#9b5bff")+'</g>';
+    h+='<rect y="214" width="360" height="36" fill="#12061b"/></svg>';
+    h+='<div class="ttl"><h1>🏆 चूज़ा सेना</h1><p>लीडरबोर्ड: अपना rank देखो</p></div>';
+    $("hero").innerHTML=h;
+  }
+
+  /* ---------- data ---------- */
+  function norm(s){return String(s||"").trim().replace(/^@+/,"").toLowerCase();}
+  function num(v){var n=Number(String(v).replace(/,/g,""));return isFinite(n)?n:null;}
+  function pick(o,ks){for(var i=0;i<ks.length;i++){if(o[ks[i]]!==undefined&&o[ks[i]]!==null)return o[ks[i]];}}
+  function fromItem(it,key){
+    if(Array.isArray(it)){
+      var nm=it.filter(function(x){return typeof x==="string"&&/[a-z0-9_.]/i.test(x)})[0];
+      var cn=it.map(num).filter(function(x){return x!==null})[0];
+      var rk=it.filter(function(x){return typeof x==="string"&&x!==nm})[0];
+      return nm&&cn!==undefined?{u:nm,c:cn,r:rk}:null;
+    }
+    if(it&&typeof it==="object"){
+      var u=pick(it,["username","user","name","handle","user_name","id"])||key;
+      var c=num(pick(it,["comments","count","total","comment_count","total_comments","score"]));
+      var r=pick(it,["rank","role","level"]);
+      return(u&&c!==null)?{u:String(u),c:c,r:r}:null;
+    }
+    var n=num(it);return(key&&n!==null)?{u:key,c:n}:null;
+  }
+  function extract(d){
+    var out=[];
+    if(Array.isArray(d)){d.forEach(function(it){var r=fromItem(it);if(r)out.push(r);});return out;}
+    if(d&&typeof d==="object"){
+      var ak=["leaderboard","users","data","entries","list","rows","commenters","counts"];
+      for(var i=0;i<ak.length;i++){if(d[ak[i]]&&typeof d[ak[i]]==="object"){var x=extract(d[ak[i]]);if(x.length)return x;}}
+      Object.keys(d).forEach(function(k){var r=fromItem(d[k],k);if(r)out.push(r);});
+    }
+    return out;
+  }
+  function stepOf(r){
+    var s=String(r.r||"").toLowerCase();
+    if(/किंग|king/.test(s))return 4;
+    if(/जाइंट|giant/.test(s))return 3;
+    if(/रोबोट|robot/.test(s))return 2;
+    if(/स्नाइपर|sniper/.test(s))return 1;
+    if(/सिपाही|soldier/.test(s))return 0;
+    if(r.pos===1)return 4;
+    return r.c>=4?3:r.c===3?2:r.c===2?1:0;
+  }
+  function build(d){
+    var best={};
+    extract(d).forEach(function(r){var k=norm(r.u);if(k&&(!best[k]||r.c>best[k].c))best[k]=r;});
+    rows=Object.keys(best).map(function(k){return best[k]}).sort(function(a,b){return b.c-a.c});
+    byName={};
+    rows.forEach(function(r,i){r.pos=i+1;r.s=stepOf(r);byName[norm(r.u)]=r;});
+  }
+
+  /* ---------- render ---------- */
+  function el(t,c,x){var e=document.createElement(t);if(c)e.className=c;if(x!==undefined)e.textContent=x;return e;}
+  function mkRow(r,me){
+    var li=el("li",me?"me":"");
+    li.appendChild(el("span","n",r.pos));
+    var a=el("span");a.innerHTML=svg(STEPS[r.s].k);li.appendChild(a.firstChild);
+    li.appendChild(el("span","u","@"+norm(r.u)));
+    li.appendChild(el("span","c",r.c+" कमेंट"));
+    return li;
+  }
+  function renderBoard(mine){
+    var K=rows[0],kb=$("king");
+    kb.style.display="flex";kb.textContent="";
+    var ic=el("span");ic.innerHTML=svg("king");kb.appendChild(ic.firstChild);
+    var mid=el("div");mid.appendChild(el("small","","अभी का KING 👑"));mid.appendChild(el("b","","@"+norm(K.u)));kb.appendChild(mid);
+    var kc=el("div","kc",K.c);kc.appendChild(el("small","","कमेंट"));kb.appendChild(kc);
+
+    var pod=$("pod");pod.textContent="";
+    [1,0,2].forEach(function(i){
+      var r=rows[i];if(!r)return;
+      var p=el("div","p p"+(i+1)+(mine===r?" me":""));
+      var a=el("div");a.innerHTML=svg(STEPS[r.s].k);p.appendChild(a.firstChild);
+      p.appendChild(el("div","u","@"+norm(r.u)));
+      p.appendChild(el("div","c",r.c+" कमेंट"));
+      p.appendChild(el("div","blk",i+1));
+      pod.appendChild(p);
+    });
+    var top=$("top");top.textContent="";
+    rows.slice(3,10).forEach(function(r){top.appendChild(mkRow(r,r===mine));});
+    if(!rows.slice(3,10).length)top.style.display="none";else top.style.display="";
+    if(mine&&mine.pos>10){var g=el("li","gap","⋯");top.appendChild(g);top.appendChild(mkRow(mine,true));}
+    $("board").hidden=false;$("msg").style.display="none";
+    var f=$("foot");f.textContent="कुल "+rows.length+" चूज़े सेना में हैं।  ";
+    var a=el("a","","पूरी लिस्ट देखो");a.href=FULL;a.target="_blank";a.rel="noopener";f.appendChild(a);
+  }
+  function showCard(name){
+    var r=byName[norm(name)],c=$("card");
+    c.textContent="";c.className="card show";
+    if(!r){
+      c.classList.add("miss");c.style.setProperty("--rc","#8d739f");c.style.setProperty("--glow","#8d739f22");
+      c.appendChild(el("div","big","🔍"));c.appendChild(el("b","","@"+norm(name)+" लिस्ट में नहीं मिला"));
+      c.appendChild(el("p","","पोस्ट पर कमेंट करो, फिर लीडरबोर्ड अपडेट होने पर दोबारा देखो।"));
+      renderBoard(null);return;
+    }
+    var st=STEPS[r.s];
+    c.style.setProperty("--rc",st.c);c.style.setProperty("--glow",st.c+"44");
+    var who=el("div","who");
+    var a=el("div");a.innerHTML=svg(st.k);who.appendChild(a.firstChild);
+    var t=el("div");t.appendChild(el("div","rk",st.t));t.appendChild(el("div","nm","@"+norm(r.u)));who.appendChild(t);c.appendChild(who);
+    var n=el("div","nums");
+    [["#"+r.pos,"नंबर"],[r.c,"कमेंट"],[rows.length,"कुल चूज़े"]].forEach(function(x){var d=el("div");d.appendChild(el("b","",x[0]));d.appendChild(el("small","",x[1]));n.appendChild(d);});
+    c.appendChild(n);
+    var L=el("div","ladder");
+    STEPS.forEach(function(s,i){
+      var d=el("div",i<r.s?"done":i===r.s?"now":"");
+      var ic=el("div");ic.innerHTML=svg(s.k);d.appendChild(ic.firstChild);d.appendChild(el("div","",s.t));L.appendChild(d);
+    });
+    c.appendChild(L);
+    var msg;
+    if(r.pos===1)msg="तुम सेना के KING हो! 👑"+(rows[1]?" दूसरे नंबर से "+(r.c-rows[1].c)+" कमेंट आगे।":"");
+    else if(r.s<3){var th=[2,3,4][r.s],need=Math.max(1,th-r.c);msg=need+" और कमेंट करो, अगला rank: "+STEPS[r.s+1].t+" ⬆️";}
+    else msg="KING बनने के लिए "+(rows[0].c-r.c+1)+" कमेंट और चाहिए। 👑";
+    c.appendChild(el("div","next",msg));
+    renderBoard(r);
+    c.scrollIntoView({behavior:"smooth",block:"nearest"});
+  }
+  function suggest(v){
+    var s=$("sugg");s.textContent="";
+    var q=norm(v);if(q.length<2||!rows.length)return;
+    var m=rows.filter(function(r){return norm(r.u).indexOf(q)>-1}).slice(0,5);
+    if(m.length===1&&norm(m[0].u)===q)return;
+    m.forEach(function(r){
+      var b=el("button","chip","@"+norm(r.u));b.type="button";
+      b.onclick=function(){$("q").value=norm(r.u);s.textContent="";showCard(r.u);};
+      s.appendChild(b);
+    });
+  }
+  $("q").addEventListener("input",function(e){suggest(e.target.value);});
+  $("f").addEventListener("submit",function(e){
+    e.preventDefault();
+    if(!norm($("q").value))return;
+    if(!rows.length){$("msg").style.display="block";$("msg").textContent="लीडरबोर्ड अभी लोड हो रहा है, एक पल रुको।";return;}
+    $("sugg").textContent="";showCard($("q").value);
+  });
+  function load(u){return fetch(u,{cache:"no-store"}).then(function(r){if(!r.ok)throw new Error(r.status);return r.json();});}
+  hero();
+  load("leaderboard.json?t="+Date.now())
+    .catch(function(){return load(RAW+"?t="+Date.now());})
+    .then(function(d){build(d);if(!rows.length)throw new Error("empty");renderBoard(null);})
+    .catch(function(){$("msg").textContent="लीडरबोर्ड लोड नहीं हो पाया। थोड़ी देर बाद दोबारा खोलो।";});
+})();
+</script>
+</body>
+</html>
