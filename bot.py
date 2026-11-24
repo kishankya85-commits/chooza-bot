@@ -15,8 +15,8 @@ MAX_REPLIES = int(os.environ.get("MAX_REPLIES_PER_RUN", "15"))
 REPLY_TO_OLD = False
 
 # सुरक्षित लिमिट्स ताकि Rate Limit (1-2 घंटे वाला ब्लॉक) न लगे
-MAX_MEDIA = int(os.environ.get("MAX_MEDIA", "50"))
-MAX_PAGES = int(os.environ.get("MAX_PAGES", "50"))
+MAX_MEDIA = int(os.environ.get("MAX_MEDIA", "60"))
+MAX_PAGES = int(os.environ.get("MAX_PAGES", "60"))
 PAGE_SLEEP = float(os.environ.get("PAGE_SLEEP", "1.5"))
 
 STATE_FILE = "state.json"
