@@ -35,7 +35,7 @@ BOARD_MD = "leaderboard.md"
 BOARD_JSON = "leaderboard.json"
 
 IST = timezone(timedelta(hours=5, minutes=30))
-KING_AFTER_TXT = os.environ.get("KING_AFTER", "2026-11-24 23:59")
+KING_AFTER_TXT = os.environ.get("KING_AFTER", "2026-11-24 00:00")
 KING_AFTER = datetime.strptime(KING_AFTER_TXT, "%Y-%m-%d %H:%M").replace(tzinfo=IST).timestamp()
 
 RANKS = [(4, "जाइंट"), (3, "रोबोट"), (2, "स्नाइपर"), (1, "सैनिक")]
@@ -194,7 +194,6 @@ def write_board(st, now):
         key=lambda kv: (-kv[1], st["last"].get(kv[0], 0)),
     )
 
-    # leaderboard.json (वेबसाइट और सर्च इसे पढ़ती है)
     data = []
     for user, n in rows:
         rank = "किंग" if (final and user == king) else base_rank(n)
@@ -202,7 +201,6 @@ def write_board(st, now):
     with open(BOARD_JSON, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
-    # leaderboard.md
     lines = ["# 🏆 चूज़ा सेना लीडरबोर्ड", ""]
     if final and king:
         lines.append(f"🏆 **फाइनल KING: @{king}** ({st['counts'][king]} कमेंट)")
@@ -229,3 +227,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+    
