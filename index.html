@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#14081f">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>चूज़ा सेना लीडरबोर्ड</title>
 <style>
 :root{
@@ -54,6 +57,7 @@ main{max-width:520px;margin:0 auto;padding:0 14px}
 /* result card */
 .card{display:none;margin:16px 0;border-radius:24px;padding:18px 16px 16px;background:radial-gradient(circle at 50% 0,var(--glow,#ffd23f33),transparent 62%),var(--panel);border:3px solid var(--rc,var(--gold));box-shadow:0 0 28px var(--glow,#ffd23f55)}
 .card.show{display:block}
+.card + .card{margin-top:12px}
 @media (prefers-reduced-motion:no-preference){.card.show{animation:rise .3s ease-out}@keyframes rise{from{transform:translateY(10px) scale(.97);opacity:.4}to{transform:none;opacity:1}}}
 .card .who{display:flex;align-items:center;gap:14px}
 .card .who svg{flex:none;width:96px;height:96px}
@@ -107,15 +111,15 @@ li.gap{display:block;text-align:center;color:var(--mute);padding:2px}
   <div class="king" id="king"></div>
 
   <form class="search" id="f" autocomplete="off">
-    <label for="q">अपना Instagram username डालो</label>
+    <label for="q">अपना Instagram username डालो (एक या दोनों नाम)</label>
     <div class="row">
-      <div class="field"><span>@</span><input id="q" type="text" inputmode="text" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="username"></div>
+      <div class="field"><span>@</span><input id="q" type="text" inputmode="text" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="username या दोनों नाम"></div>
       <button class="go" type="submit">Rank देखो</button>
     </div>
     <div class="sugg" id="sugg"></div>
   </form>
 
-  <section class="card" id="card" aria-live="polite"></section>
+  <div id="cards"></div>
   <p class="msg" id="msg">लीडरबोर्ड लोड हो रहा है...</p>
 
   <div id="board" hidden>
@@ -134,7 +138,6 @@ li.gap{display:block;text-align:center;color:var(--mute);padding:2px}
   var $=function(i){return document.getElementById(i)};
   var rows=[],byName={};
 
-  /* ---------- characters (static SVG, no user data inside) ---------- */
   var STEPS=[
     {k:"soldier",t:"सिपाही",c:"#7fd35f"},
     {k:"sniper",t:"स्नाइपर",c:"#5aa8ff"},
@@ -142,8 +145,9 @@ li.gap{display:block;text-align:center;color:var(--mute);padding:2px}
     {k:"giant",t:"जाइंट",c:"#ff6b3d"},
     {k:"king",t:"किंग",c:"#ffd23f"}
   ];
+
   function chickG(kind){
-    var body="#ffd23f",wing="#e8a91c",extra="",top="",eye='<circle cx="62" cy="54" r="7" fill="#fff"/><circle cx="64" cy="55" r="3.2" fill="#161616"/>';
+    var body="#ffd23f",wing="#e8a91c",eye='<circle cx="62" cy="54" r="7" fill="#fff"/><circle cx="64" cy="55" r="3.2" fill="#161616"/>';
     if(kind==="robot"){body="#aab3c6";wing="#848ea3";}
     if(kind==="giant"){body="#ff9632";wing="#d86d12";}
     if(kind==="king"){body="#ffcb2e";wing="#e09a00";}
@@ -194,7 +198,6 @@ li.gap{display:block;text-align:center;color:var(--mute);padding:2px}
     $("hero").innerHTML=h;
   }
 
-  /* ---------- data ---------- */
   function norm(s){return String(s||"").trim().replace(/^@+/,"").toLowerCase();}
   function num(v){var n=Number(String(v).replace(/,/g,""));return isFinite(n)?n:null;}
   function pick(o,ks){for(var i=0;i<ks.length;i++){if(o[ks[i]]!==undefined&&o[ks[i]]!==null)return o[ks[i]];}}
@@ -241,27 +244,39 @@ li.gap{display:block;text-align:center;color:var(--mute);padding:2px}
     rows.forEach(function(r,i){r.pos=i+1;r.s=stepOf(r);byName[norm(r.u)]=r;});
   }
 
-  /* ---------- render ---------- */
   function el(t,c,x){var e=document.createElement(t);if(c)e.className=c;if(x!==undefined)e.textContent=x;return e;}
-  function mkRow(r,me){
-    var li=el("li",me?"me":"");
+  function mkRow(r,isMe){
+    var li=el("li",isMe?"me":"");
     li.appendChild(el("span","n",r.pos));
     var a=el("span");a.innerHTML=svg(STEPS[r.s].k);li.appendChild(a.firstChild);
     li.appendChild(el("span","u","@"+norm(r.u)));
     li.appendChild(el("span","c",r.c+" कमेंट"));
     return li;
   }
-  function renderBoard(mine){
-    var K=rows[0],kb=$("king");
-    kb.style.display="flex";kb.textContent="";
-    var ic=el("span");ic.innerHTML=svg("king");kb.appendChild(ic.firstChild);
-    var mid=el("div");mid.appendChild(el("small","","अभी का KING 👑"));mid.appendChild(el("b","","@"+norm(K.u)));kb.appendChild(mid);
-    var kc=el("div","kc",K.c);kc.appendChild(el("small","","कमेंट"));kb.appendChild(kc);
+  function getKings(){
+    return rows.filter(function(r){return r.s===4;});
+  }
+  function renderBoard(activeList){
+    var mineSet=new Set(activeList||[]);
+    var kings=getKings();
+    var K=kings[0]||rows[0],kb=$("king");
+    if(K){
+      kb.style.display="flex";kb.textContent="";
+      var ic=el("span");ic.innerHTML=svg("king");kb.appendChild(ic.firstChild);
+      var namesText=kings.length>1
+        ? kings.map(function(k){return "@"+norm(k.u);}).join(" & ")
+        : "@"+norm(K.u);
+      var mid=el("div");
+      mid.appendChild(el("small","",kings.length>1?"अभी के KING 👑":"अभी का KING 👑"));
+      mid.appendChild(el("b","",namesText));
+      kb.appendChild(mid);
+      var kc=el("div","kc",K.c);kc.appendChild(el("small","","कमेंट"));kb.appendChild(kc);
+    }
 
     var pod=$("pod");pod.textContent="";
     [1,0,2].forEach(function(i){
       var r=rows[i];if(!r)return;
-      var p=el("div","p p"+(i+1)+(mine===r?" me":""));
+      var p=el("div","p p"+(i+1)+(mineSet.has(r)?" me":""));
       var a=el("div");a.innerHTML=svg(STEPS[r.s].k);p.appendChild(a.firstChild);
       p.appendChild(el("div","u","@"+norm(r.u)));
       p.appendChild(el("div","c",r.c+" कमेंट"));
@@ -269,29 +284,31 @@ li.gap{display:block;text-align:center;color:var(--mute);padding:2px}
       pod.appendChild(p);
     });
     var top=$("top");top.textContent="";
-    rows.slice(3,10).forEach(function(r){top.appendChild(mkRow(r,r===mine));});
+    rows.slice(3,10).forEach(function(r){top.appendChild(mkRow(r,mineSet.has(r)));});
     if(!rows.slice(3,10).length)top.style.display="none";else top.style.display="";
-    if(mine&&mine.pos>10){var g=el("li","gap","⋯");top.appendChild(g);top.appendChild(mkRow(mine,true));}
+    activeList.forEach(function(m){
+      if(m&&m.pos>10){
+        top.appendChild(el("li","gap","⋯"));
+        top.appendChild(mkRow(m,true));
+      }
+    });
     $("board").hidden=false;$("msg").style.display="none";
     var f=$("foot");f.textContent="कुल "+rows.length+" चूज़े सेना में हैं।  ";
     var a=el("a","","पूरी लिस्ट देखो");a.href=FULL;a.target="_blank";a.rel="noopener";f.appendChild(a);
   }
-  function showCard(name){
-    var r=byName[norm(name)],c=$("card");
-    c.textContent="";c.className="card show";
-    if(!r){
-      c.classList.add("miss");c.style.setProperty("--rc","#8d739f");c.style.setProperty("--glow","#8d739f22");
-      c.appendChild(el("div","big","🔍"));c.appendChild(el("b","","@"+norm(name)+" लिस्ट में नहीं मिला"));
-      c.appendChild(el("p","","पोस्ट पर कमेंट करो, फिर लीडरबोर्ड अपडेट होने पर दोबारा देखो।"));
-      renderBoard(null);return;
-    }
+
+  function makeUserCard(r){
     var st=STEPS[r.s];
+    var c=el("section","card show");
+    c.setAttribute("aria-live","polite");
     c.style.setProperty("--rc",st.c);c.style.setProperty("--glow",st.c+"44");
     var who=el("div","who");
     var a=el("div");a.innerHTML=svg(st.k);who.appendChild(a.firstChild);
     var t=el("div");t.appendChild(el("div","rk",st.t));t.appendChild(el("div","nm","@"+norm(r.u)));who.appendChild(t);c.appendChild(who);
     var n=el("div","nums");
-    [["#"+r.pos,"नंबर"],[r.c,"कमेंट"],[rows.length,"कुल चूज़े"]].forEach(function(x){var d=el("div");d.appendChild(el("b","",x[0]));d.appendChild(el("small","",x[1]));n.appendChild(d);});
+    [["#"+r.pos,"नंबर"],[r.c,"कमेंट"],[rows.length,"कुल चूज़े"]].forEach(function(x){
+      var d=el("div");d.appendChild(el("b","",x[0]));d.appendChild(el("small","",x[1]));n.appendChild(d);
+    });
     c.appendChild(n);
     var L=el("div","ladder");
     STEPS.forEach(function(s,i){
@@ -300,38 +317,70 @@ li.gap{display:block;text-align:center;color:var(--mute);padding:2px}
     });
     c.appendChild(L);
     var msg;
-    if(r.pos===1)msg="तुम सेना के KING हो! 👑"+(rows[1]?" दूसरे नंबर से "+(r.c-rows[1].c)+" कमेंट आगे।":"");
+    if(r.s===4||r.pos===1)msg="तुम सेना के KING हो! 👑";
     else if(r.s<3){var th=[2,3,4][r.s],need=Math.max(1,th-r.c);msg=need+" और कमेंट करो, अगला rank: "+STEPS[r.s+1].t+" ⬆️";}
     else msg="KING बनने के लिए "+(rows[0].c-r.c+1)+" कमेंट और चाहिए। 👑";
     c.appendChild(el("div","next",msg));
-    renderBoard(r);
-    c.scrollIntoView({behavior:"smooth",block:"nearest"});
+    return c;
   }
+
+  function findMatches(queryText){
+    var tokens=String(queryText||"")
+      .split(/[\s,&+/|]+/)
+      .map(norm)
+      .filter(Boolean);
+    var matched=[];
+    var seen=new Set();
+
+    tokens.forEach(function(tok){
+      if(byName[tok]&&!seen.has(byName[tok])){
+        seen.add(byName[tok]);
+        matched.push(byName[tok]);
+      }else{
+        rows.forEach(function(r){
+          if(!seen.has(r)&&norm(r.u).indexOf(tok)>-1){
+            seen.add(r);
+            matched.push(r);
+          }
+        });
+      }
+    });
+
+    // यदि दोनों में से किसी किंग का नाम मैच हो या दोनों नाम सर्च किए जाएं, तो दोनों किंग्स साथ दिखाएं
+    var kings=getKings();
+    var matchedKing=matched.some(function(r){return r.s===4;});
+    if(matchedKing&&kings.length>1){
+      kings.forEach(function(k){
+        if(!seen.has(k)){
+          seen.add(k);
+          matched.unshift(k);
+        }
+      });
+    }
+    return {tokens:tokens,matched:matched};
+  }
+
+  function showSearch(queryText){
+    var wrap=$("cards");
+    wrap.textContent="";
+    var res=findMatches(queryText);
+    if(!res.matched.length){
+      var c=el("section","card show miss");
+      c.style.setProperty("--rc","#8d739f");c.style.setProperty("--glow","#8d739f22");
+      c.appendChild(el("div","big","🔍"));
+      c.appendChild(el("b","","@"+(res.tokens[0]||norm(queryText))+" लिस्ट में नहीं मिला"));
+      c.appendChild(el("p","","पोस्ट पर कमेंट करो, फिर लीडरबोर्ड अपडेट होने पर दोबारा देखो।"));
+      wrap.appendChild(c);
+      renderBoard([]);
+      return;
+    }
+    res.matched.forEach(function(r){
+      wrap.appendChild(makeUserCard(r));
+    });
+    renderBoard(res.matched);
+    wrap.scrollIntoView({behavior:"smooth",block:"nearest"});
+  }
+
   function suggest(v){
     var s=$("sugg");s.textContent="";
-    var q=norm(v);if(q.length<2||!rows.length)return;
-    var m=rows.filter(function(r){return norm(r.u).indexOf(q)>-1}).slice(0,5);
-    if(m.length===1&&norm(m[0].u)===q)return;
-    m.forEach(function(r){
-      var b=el("button","chip","@"+norm(r.u));b.type="button";
-      b.onclick=function(){$("q").value=norm(r.u);s.textContent="";showCard(r.u);};
-      s.appendChild(b);
-    });
-  }
-  $("q").addEventListener("input",function(e){suggest(e.target.value);});
-  $("f").addEventListener("submit",function(e){
-    e.preventDefault();
-    if(!norm($("q").value))return;
-    if(!rows.length){$("msg").style.display="block";$("msg").textContent="लीडरबोर्ड अभी लोड हो रहा है, एक पल रुको।";return;}
-    $("sugg").textContent="";showCard($("q").value);
-  });
-  function load(u){return fetch(u,{cache:"no-store"}).then(function(r){if(!r.ok)throw new Error(r.status);return r.json();});}
-  hero();
-  load("leaderboard.json?t="+Date.now())
-    .catch(function(){return load(RAW+"?t="+Date.now());})
-    .then(function(d){build(d);if(!rows.length)throw new Error("empty");renderBoard(null);})
-    .catch(function(){$("msg").textContent="लीडरबोर्ड लोड नहीं हो पाया। थोड़ी देर बाद दोबारा खोलो।";});
-})();
-</script>
-</body>
-</html>
+    var parts=String(v||"").split(/[\s,&+/|]
