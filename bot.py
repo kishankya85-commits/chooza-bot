@@ -36,6 +36,7 @@ MAX_PAGES = int(os.environ.get("MAX_PAGES", "25"))
 PAGE_SLEEP = float(os.environ.get("PAGE_SLEEP", "1.5"))
 
 STATE_FILE = "state.json"
+BOARD_FILE = "board.md"
 
 IST = timezone(timedelta(hours=5, minutes=30))
 KING_AFTER_TXT = os.environ.get("KING_AFTER", "2026-11-24 23:59")
@@ -200,12 +201,13 @@ def scan(st, now):
             for c in paged(f"{m['id']}/comments", {"fields": "id,text,username,timestamp", "limit": 100}, MAX_PAGES):
                 cid = str(c.get("id") or "").strip()
                 user = str(c.get("username") or "").strip().lower()
+                if cid and not user:
+                    print("no username:", cid)
                 if not cid or not user or user == MY_NAME:
                     continue
 
                 ts = parse_ts(c.get("timestamp"))
 
-                # अगर कोई पुराना कमेंट पहले seen में नहीं है या काउंट में नहीं गिना गया है, तो जोड़ें
                 already_seen = cid in st["seen"]
                 if not already_seen:
                     st["seen"][cid] = {"u": user, "t": ts}
@@ -218,16 +220,17 @@ def scan(st, now):
 
                     st["pending"].append({"id": cid, "u": user, "due": now + DELAY_SEC, "tries": 0})
                 else:
-                    # सुरक्षा: यदि seen में है पर last अपडेट नहीं हुआ है
                     st["last"][user] = max(st["last"].get(user, 0), ts)
 
         except ApiError as e:
+            print("Scan error on media", m.get("id"), e)
             if e.code == 190 and not rotate_token():
+                st["init"] = True
+                save(st)
                 raise
-            print("Scan skip media / rate limit:", m.get("id"), e)
             save(st)
             time.sleep(2)
-            break
+            continue
 
     st["init"] = True
     save(st)
@@ -239,7 +242,6 @@ def send_due(st, now):
     if not due:
         return 0
 
-    # हर यूज़र के लिए सबसे नया due कमेंट चुनें, लेकिन दूसरे due आइटम्स को गलत तरीके से न काटें
     latest_by_user = {}
     for p in due:
         u = p.get("u")
@@ -281,5 +283,39 @@ def send_due(st, now):
 
 def write_board(st, now):
     final = is_final(now)
-    king = top_
-    
+    king = top_user(st)
+    rows = sorted(
+        st["counts"].items(),
+        key=lambda kv: (-kv[1], st["last"].get(kv[0], 0)),
+    )
+
+    lines = ["# 🏆 लीडरबोर्ड", ""]
+    if final and king:
+        lines.append(f"👑 किंग: @{king}")
+        lines.append("")
+    lines.append("| # | यूज़र | कुल कमेंट | रैंक |")
+    lines.append("|---|-------|-----------|------|")
+    for i, (user, n) in enumerate(rows, 1):
+        rank = "किंग 👑" if (final and user == king) else base_rank(n)
+        lines.append(f"| {i} | @{user} | {n} | {rank} |")
+    lines.append("")
+    updated = datetime.fromtimestamp(now, IST).strftime("%Y-%m-%d %H:%M IST")
+    lines.append(f"अपडेट: {updated}")
+
+    with open(BOARD_FILE, "w", encoding="utf-8") as f:
+        f.write("\n".join(lines) + "\n")
+
+
+def main():
+    if not TOKENS:
+        raise SystemExit("IG_TOKEN / IG_TOKENS नहीं मिला")
+    now = time.time()
+    st = load()
+    new_count = scan(st, now)
+    sent = send_due(st, now)
+    write_board(st, now)
+    print(f"नए कमेंट: {new_count} | रिप्लाई भेजे: {sent} | कुल यूज़र: {len(st['counts'])}")
+
+
+if __name__ == "__main__":
+    main()
