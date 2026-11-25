@@ -72,13 +72,22 @@ def api_get(url, params=None):
     for i in range(attempts):
         p = dict(params or {})
         p["access_token"] = TOKEN
-        try:
-            return _check(requests.get(url, params=p, timeout=30))
-        except ApiError as e:
-            if e.code in (4, 17, 32, 190, 613) and i < attempts - 1:
-                rotate_token()
-                continue
-            raise
+        for retry in range(3):
+            try:
+                resp = requests.get(url, params=p, timeout=60)
+                return _check(resp)
+            except requests.exceptions.RequestException as e:
+                if retry < 2:
+                    wait = 3 * (retry + 1)
+                    print(f"Network/Timeout retry ({retry + 1}/3) after {wait}s: {e}")
+                    time.sleep(wait)
+                    continue
+                raise ApiError(-2, f"Network timeout/error: {e}")
+            except ApiError as e:
+                if e.code in (4, 17, 32, 190, 613) and i < attempts - 1:
+                    rotate_token()
+                    break
+                raise
 
 
 def paged(path, params, max_pages):
@@ -227,4 +236,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-    
