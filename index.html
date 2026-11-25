@@ -383,4 +383,36 @@ li.gap{display:block;text-align:center;color:var(--mute);padding:2px}
 
   function suggest(v){
     var s=$("sugg");s.textContent="";
-    var parts=String(v||"").split(/[\s,&+/|]
+        var parts=String(v||"").split(/[\s,&+/|]+/);
+    var q=norm(parts[parts.length-1]);
+    if(q.length<2||!rows.length)return;
+    var m=rows.filter(function(r){return norm(r.u).indexOf(q)>-1;}).slice(0,5);
+    if(m.length===1&&norm(m[0].u)===q)return;
+    m.forEach(function(r){
+      var b=el("button","chip","@"+norm(r.u));b.type="button";
+      b.onclick=function(){
+        parts[parts.length-1]=norm(r.u);
+        $("q").value=parts.filter(Boolean).join(" ");
+        s.textContent="";showSearch($("q").value);
+      };
+      s.appendChild(b);
+    });
+  }
+  $("q").addEventListener("input",function(e){suggest(e.target.value);});
+  $("f").addEventListener("submit",function(e){
+    e.preventDefault();
+    if(!norm($("q").value))return;
+    if(!rows.length){$("msg").style.display="block";$("msg").textContent="लीडरबोर्ड अभी लोड हो रहा है, थोड़ी देर बाद दोबारा दबाओ।";return;}
+    $("sugg").textContent="";showSearch($("q").value);
+  });
+  function load(u){return fetch(u,{cache:"no-store"}).then(function(r){if(!r.ok)throw new Error("http "+r.status);return r.json();});}
+  hero();
+  load("leaderboard.json?t="+Date.now())
+    .catch(function(){return load(RAW+"?t="+Date.now());})
+    .then(function(d){build(d);if(!rows.length)throw new Error("empty");renderBoard([]);})
+    .catch(function(){$("msg").style.display="block";$("msg").textContent="लीडरबोर्ड लोड नहीं हो पाया। थोड़ी देर बाद दोबारा खोलो।";});
+})();
+</script>
+</body>
+</html>
+                                  
