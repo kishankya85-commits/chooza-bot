@@ -26,8 +26,8 @@ TOKEN = TOKENS[0] if TOKENS else ""
 IG_ID = os.environ.get("IG_USER_ID", "17841475497080173")
 MY_NAME = os.environ.get("IG_USERNAME", "kishan_ku_2k").lower()
 
-MAX_MEDIA = int(os.environ.get("MAX_MEDIA", "50"))
-MAX_PAGES = int(os.environ.get("MAX_PAGES", "45"))
+MAX_MEDIA = int(os.environ.get("MAX_MEDIA", "55"))
+MAX_PAGES = int(os.environ.get("MAX_PAGES", "50"))
 PAGE_SLEEP = float(os.environ.get("PAGE_SLEEP", "1.5"))
 
 STATE_FILE = "state.json"
